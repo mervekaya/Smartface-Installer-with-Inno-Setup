@@ -1,5 +1,3 @@
-```pascal
-
 ; /////////////////////////////////////////////////////////////////////////////////////
 ; // Created by Merve KAYA                                                           //
 ; // This program makes web installer for Smartface                                  //
@@ -46,8 +44,8 @@ OutputBaseFilename=Smarface Installer
 DisableStartupPrompt=true
 DisableReadyPage=true
 DisableDirPage=true
-WizardSmallImageFile=Smartface.bmp
-WizardImageFile=smartface_picture.bmp
+WizardSmallImageFile=smartface_logo5.bmp
+WizardImageFile=wizard.bmp
 WizardSmallImageBackColor=clGreen
 
 PrivilegesRequired=admin
@@ -143,6 +141,7 @@ var
   smartfaceSize,sizeOfPre : cardinal;
 begin
    jCounter := jCounter - 1;
+   zCounter := 1;
 
    For kCounter := 1 to jCounter do
    begin
@@ -153,18 +152,37 @@ begin
          if  (Wizardform.TasksList.Checked[unFoundReg[kCounter]] = true) then  //if user selects package
          begin 
             itd_addfile(nameOfPreLinkArr[unFoundReg[kCounter]], ExpandConstant('{%temp}\' + 'SmartfaceInstaller\' + nameOfPreExtArr[unFoundReg[kCounter]]));
-         end; 
+         end else if (nameOfPreExtArr[unFoundReg[kCounter]] = 'dotNetFx40_Full_setup.exe') then
+         begin
+             canNotDownload := 1;
+         end else
+         begin
+             canNotDownload := 3;
+             notSetExe[zCounter] := unFoundReg[kCounter];
+             zCounter := zCounter + 1;
+         end;         
       end else 
       begin
         itd_init;   
         ITD_SetOption('UI_DetailedMode', '1'); 
         isTrue1 := ITD_GetFileSize(nameOfPreLinkArr[unFoundReg[kCounter]],sizeOfPre);
         FindFirst(ExpandConstant('{%temp}\SmartfaceInstaller\' + nameOfPreExtArr[unFoundReg[kCounter]]),FindRec);
-        if  not (FindRec.SizeLow = sizeOfPre) and (Wizardform.TasksList.Checked[unFoundReg[kCounter]] = true) then
+        if  not (FindRec.SizeLow = sizeOfPre) then 
+        begin
+        if (Wizardform.TasksList.Checked[unFoundReg[kCounter]] = true) then
         begin
            itd_addfile(nameOfPreLinkArr[unFoundReg[kCounter]], ExpandConstant('{%temp}\' + 'SmartfaceInstaller\' + nameOfPreExtArr[unFoundReg[kCounter]]));        
-         end 
-       end;
+        end else if(nameOfPreExtArr[unFoundReg[kCounter]] = 'dotNetFx40_Full_setup.exe') then
+        begin
+           canNotDownload := 1;
+        end else
+        begin
+           canNotDownload := 3;
+           notSetExe[zCounter] := unFoundReg[kCounter];
+           zCounter := zCounter + 1;
+         end; 
+        end;         
+      end;
    end;
 
     isTrue1 := ITD_GetFileSize(smartfaceLink,smartfaceSize);
@@ -178,7 +196,7 @@ begin
       if  not (FindRec.SizeLow = smartfaceSize) then
       begin            
         itd_addfile(smartfaceLink, ExpandConstant('{%temp}\' + 'SmartfaceInstaller\' + smartfaceExtName));
-      end;
+      end ;
       DownloadPage := itd_downloadafter(wpPreparing);
       itd_afterSuccess:=@downloadFilesfinished; 
     end; 
@@ -269,7 +287,7 @@ begin
       end;
     end;
     
-    if (canNotDownload = 0) then
+    if not (canNotDownload = 1) then
     begin
       if Exec(ExpandConstant('{%temp}\' + 'SmartfaceInstaller\' + smartfaceExtName ), '', '', SW_SHOW,
             ewWaitUntilTerminated, ResultCode) then
@@ -280,9 +298,8 @@ begin
        end;
      end
     end;
-    
-    zCounter := 1;
-    if (canNotDownload = 0) then
+     
+    if not (canNotDownload = 1) and not (canNotDownload = 2) then
     begin
       for kCounter := 1 to jCounter do
       begin
@@ -604,5 +621,5 @@ end;
 
 //END OF FILE
 
-```
+
 
