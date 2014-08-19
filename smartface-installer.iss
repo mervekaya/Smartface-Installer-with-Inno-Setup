@@ -32,6 +32,8 @@
 #define MyAppPublisher "Smartface, Inc."
 #define MyAppURL "http://www.smartface.io/"
 #define MinJRE "1.6"
+#define MegaByte 1024 * 1024
+#define WelcomePageCaption "Welcome to the Smartface Installation Wizard"
 
 [Setup]
 AppName=Smarface Installer      
@@ -44,7 +46,7 @@ OutputBaseFilename=Smarface Installer
 DisableStartupPrompt=true
 DisableReadyPage=true
 DisableDirPage=true
-WizardSmallImageFile=smartface_logo5.bmp
+WizardSmallImageFile=smartface_logo.bmp
 WizardImageFile=wizard.bmp
 WizardSmallImageBackColor=clGreen
 
@@ -62,7 +64,7 @@ Name: english; MessagesFile: compiler:Default.isl
 
 [Files]
 Source: "Readme.txt"; DestDir: "{app}"
-Source: "smartface_4.bmp"; Flags: dontcopy
+Source: "smartface_logo_40.bmp"; Flags: dontcopy
 
 
 ;List of prerequisites
@@ -73,9 +75,12 @@ Name: "Task"; Description: ".NET Framework"; GroupDescription: "Prerequisites"  
 Name: "Task"; Description: "Java"; GroupDescription: "Prerequisites" ;  Flags: checkedonce
 
 
+
 #include ReadReg(HKEY_LOCAL_MACHINE,'Software\Sherlock Software\InnoTools\Downloader','ScriptPath','');
 
 [Code]
+procedure addImage(); Forward;
+function sizeOfSmartface : Cardinal; Forward;
 
 var
   iCounter,iSizeOfArr,jCounter,kCounter,zCounter,flagForFinishPage,
@@ -87,51 +92,68 @@ var
   smartfaceExtName,smartfaceLink,nameOfFoundPre: String;
   isRegExist : Array[1..4] of Boolean;
   FindRec: TFindRec;
-                                                                                                        
-// This function was written to add images.
+                                                                                                       
 
+
+
+procedure ExitProcess(exitCode:integer);
+  external 'ExitProcess@kernel32.dll stdcall';
+
+var progress:TOutputProgressWizardPage;
+
+
+
+// This function was written to add images.
 procedure addImage();
 var
   BtnImage: TBitmapImage;     // for image
   StaticText: TNewStaticText;  //to write Smartface (350 MB) next to image
+  smartfaceSize : cardinal;
   begin
-  ExtractTemporaryFile('smartface_4.bmp');
+  ExtractTemporaryFile('smartface_logo_40.bmp');
   BtnImage := TBitmapImage.Create(WizardForm);
   flag := 0;
   // resize text and set its position
   StaticText := TNewStaticText.Create(WizardForm);
   StaticText.Top :=  WizardForm.SelectTasksPage.Top + 55;
-  StaticText.Caption := 'Smartface (350 MB)';
+  smartfaceSize := sizeOfSmartface / {#MegaByte};  //to convert megabyte
+  StaticText.Caption := 'Smartface App Studio ( ' + IntToStr(smartfaceSize) + ' MB )' ;
   StaticText.AutoSize := false;  //must be false to set position
-  StaticText.Left := 55
+  StaticText.Left := 50
   StaticText.Parent := WizardForm.SelectTasksPage;
 
   // resize image and set its position
   with BtnImage do 
   begin
     Parent := WizardForm.SelectTasksPage;
-    Bitmap.LoadFromFile(ExpandConstant('{tmp}\')+ 'smartface_4.bmp');
+    Bitmap.LoadFromFile(ExpandConstant('{tmp}\')+ 'smartface_logo_40.bmp');
     AutoSize := false;    
     Width := 100;
     Height := 30;
-    Top := WizardForm.SelectTasksPage.Top + 50;
+    Top := WizardForm.SelectTasksPage.Top + 45;
     //change positon of  prerequisites list at panel
-    WizardForm.TasksList.Width := WizardForm.TasksList.Width - BtnImage.Width ;
+    WizardForm.TasksList.Width := WizardForm.TasksList.Width - BtnImage.Width + 100 ;
     WizardForm.TasksList.Top := WizardForm.TasksList.Top + 50 ;
           
   end;
   WizardForm.TasksList.Height := WizardForm.TasksList.Height - BtnImage.Height + 300;
 end;
 
+function sizeOfSmartface : Cardinal;
+var 
+  smartfaceSize : Cardinal;
+  isTrue : boolean;
+begin
+    isTrue := ITD_GetFileSize('http://www.smartface.io/setup/SmartfaceAppStudioSetup.exe',smartfaceSize);
+    Result := smartfaceSize;
+end;
+
+
 procedure DownloadFilesFinished(downloadPage:TWizardPage);
 begin
 
 end;
 
-procedure ExitProcess(exitCode:integer);
-  external 'ExitProcess@kernel32.dll stdcall';
-
-var progress:TOutputProgressWizardPage;
 
 //This function downloads missing files if user selects.
 function downloadFiles(): Boolean; 	
@@ -323,9 +345,44 @@ begin
       end;
 end;
   
-
 var
  NewInstallerPath:string;
+procedure InitializeWizard();
+var
+  downloadPage:TWizardpage;
+  returnValue : boolean;
+begin
+
+ addImage();
+
+ WizardForm.WelcomeLabel1.Caption := '{#WelcomePageCaption}';
+
+ itd_init;
+
+ returnValue := CreateDir(ExpandConstant('{%temp}\' + 'SmartfaceInstaller'));
+ if returnValue = false then
+ begin
+  ForceDirectories(ExpandConstant('{%temp}\' + 'SmartfaceInstaller'));
+ end                                                  
+
+ //Where the new installer should be saved to, can be anywhere.
+ NewInstallerPath:=ExpandConstant('{%temp}\' + 'SmartfaceInstaller\' + 'SmartfaceInstaller.exe');
+
+ {Create our own progress page for the initial download of a small
+  textfile from the server which says what the latest version is}
+ progress:=CreateOutputProgressPage(ITD_GetString(ITDS_Update_Caption),
+    ITD_GetString(ITDS_Update_Description));
+
+
+
+ {If the download of the new installer fails, we still want to give the
+  user the option of continuing with the original installation}
+ itd_setoption('UI_AllowContinue','1');
+
+
+end;
+
+
 
 procedure DownloadFinished(downloadPage:TWizardPage);
 var ErrorCode:integer;
@@ -391,38 +448,6 @@ begin
  result:=0;
 end;
 
-procedure InitializeWizard();
-var
-  downloadPage:TWizardpage;
-  returnValue : boolean;
-begin
-
- addImage();
-
- itd_init;
-
- returnValue := CreateDir(ExpandConstant('{%temp}\' + 'SmartfaceInstaller'));
- if returnValue = false then
- begin
-  ForceDirectories(ExpandConstant('{%temp}\' + 'SmartfaceInstaller'));
- end                                                  
-
- //Where the new installer should be saved to, can be anywhere.
- NewInstallerPath:=ExpandConstant('{%temp}\' + 'SmartfaceInstaller\' + 'SmartfaceInstaller.exe');
-
- {Create our own progress page for the initial download of a small
-  textfile from the server which says what the latest version is}
- progress:=CreateOutputProgressPage(ITD_GetString(ITDS_Update_Caption),
-    ITD_GetString(ITDS_Update_Description));
-
-
-
- {If the download of the new installer fails, we still want to give the
-  user the option of continuing with the original installation}
- itd_setoption('UI_AllowContinue','1');
-
-
-end;
 
 
 
@@ -567,7 +592,6 @@ begin
     
 end;
   end;
-
 
 
 procedure CurPageChanged(CurPageID: Integer);
